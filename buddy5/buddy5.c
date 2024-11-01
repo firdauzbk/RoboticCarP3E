@@ -22,9 +22,13 @@ volatile float incremental_distance = 0;
 volatile float total_distance = 0;
 volatile float last_distance_traveled = 0;
 
-// Ultrasonic sensor pins (GP0 and GP1)
-const unsigned int TRIG_PIN = 1;
-const unsigned int ECHO_PIN = 0;
+// Ultrasonic sensor pins (GP4 and GP5)
+const unsigned int TRIG_PIN = 4;
+const unsigned int ECHO_PIN = 5;
+
+// Encoder pins (updated to GP2 and GP3)
+const unsigned int ENCODER_PIN_A = 0;
+const unsigned int ENCODER_PIN_B = 1;
 
 uint64_t last_distance_check_time = 0;  // Track the last check time
 
@@ -69,8 +73,7 @@ void updateLastCheckTime() {
 }
 
 // Helper function to set up ultrasonic sensor pins
-void setupUltrasonicPins()
-{
+void setupUltrasonicPins() {
     gpio_init(TRIG_PIN);
     gpio_init(ECHO_PIN);
     gpio_set_dir(TRIG_PIN, GPIO_OUT);
@@ -78,15 +81,13 @@ void setupUltrasonicPins()
 }
 
 // Helper function to set up buzzer pin
-void setupBuzzerPin()
-{
+void setupBuzzerPin() {
     gpio_init(BUZZER_PIN);
     gpio_set_dir(BUZZER_PIN, GPIO_OUT);
 }
 
 // Helper function to get pulse duration for distance measurement
-uint64_t getPulse()
-{
+uint64_t getPulse() {
     gpio_put(TRIG_PIN, 0);
     sleep_us(2);
     gpio_put(TRIG_PIN, 1);
@@ -115,8 +116,7 @@ uint64_t getPulse()
 }
 
 // Helper function to calculate distance in cm
-float getCm()
-{
+float getCm() {
     uint64_t pulseLength = getPulse();
     if (pulseLength == 0) return 0.0;
 
@@ -126,8 +126,7 @@ float getCm()
 }
 
 // Interrupt callback for encoder
-void encoder_callback(uint gpio, uint32_t events)
-{
+void encoder_callback(uint gpio, uint32_t events) {
     pulse_count++;
     incremental_distance += DISTANCE_PER_PULSE_CM;
 
@@ -147,13 +146,12 @@ void encoder_callback(uint gpio, uint32_t events)
 }
 
 // Function to set up encoder pins and interrupts
-void setupEncoderPins()
-{
-    gpio_init(2);
-    gpio_init(3);
-    gpio_set_dir(2, GPIO_IN);
-    gpio_set_dir(3, GPIO_IN);
+void setupEncoderPins() {
+    gpio_init(ENCODER_PIN_A);
+    gpio_init(ENCODER_PIN_B);
+    gpio_set_dir(ENCODER_PIN_A, GPIO_IN);
+    gpio_set_dir(ENCODER_PIN_B, GPIO_IN);
 
-    gpio_set_irq_enabled_with_callback(2, GPIO_IRQ_EDGE_RISE, true, &encoder_callback);
-    gpio_set_irq_enabled_with_callback(3, GPIO_IRQ_EDGE_RISE, true, &encoder_callback);
+    gpio_set_irq_enabled_with_callback(ENCODER_PIN_A, GPIO_IRQ_EDGE_RISE, true, &encoder_callback);
+    gpio_set_irq_enabled_with_callback(ENCODER_PIN_B, GPIO_IRQ_EDGE_RISE, true, &encoder_callback);
 }
