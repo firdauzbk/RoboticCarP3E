@@ -30,8 +30,8 @@ const unsigned int ECHO_PIN = 4;
 // Encoder pins for Left (GP0 and GP1) and Right (GP2 and GP3)
 const unsigned int LEFT_ENCODER_PIN_A = 0;
 const unsigned int LEFT_ENCODER_PIN_B = 1;
-const unsigned int RIGHT_ENCODER_PIN_A = 2;
-const unsigned int RIGHT_ENCODER_PIN_B = 3;
+const unsigned int RIGHT_ENCODER_PIN_A = 8;
+const unsigned int RIGHT_ENCODER_PIN_B = 9;
 
 uint64_t last_distance_check_time = 0;  // Track the last check time
 
