@@ -23,8 +23,8 @@ volatile float total_distance = 0;
 volatile float last_distance_traveled = 0;
 
 // Ultrasonic sensor pins (GP4 and GP5)
-const unsigned int TRIG_PIN = 4;
-const unsigned int ECHO_PIN = 5;
+const unsigned int TRIG_PIN = 5;
+const unsigned int ECHO_PIN = 4;
 
 // Encoder pins (updated to GP2 and GP3)
 const unsigned int ENCODER_PIN_A = 0;
