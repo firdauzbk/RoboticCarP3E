@@ -2,9 +2,15 @@
 #define BUDDY5_H
 
 #include <stdint.h>
+#include <stdbool.h>
+#include "../buddy2/buddy2.h"
 
 // #define DISTANCE_THRESHOLD_CM 10.0
 // #define CHECK_INTERVAL_MS 200
+// buddy5.h
+
+// Existing includes and declarations...
+
 
 // Ultrasonic sensor pin definitions
 extern const unsigned int TRIG_PIN;        // GPIO pin for ultrasonic trigger (GP4)
@@ -40,6 +46,8 @@ extern volatile float right_total_distance;
 extern volatile float right_speed_cm_s;
 extern volatile uint64_t right_last_pulse_time;
 
+
+extern volatile bool obstacle_detected;
 // Function declarations for Buddy5
 void initializeBuddy5Components(void);    // Initializes ultrasonic, encoder, and buzzer components
 void measureDistanceAndBuzz(void);        // Measures distance and activates buzzer if too close

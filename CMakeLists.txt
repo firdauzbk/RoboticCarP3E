@@ -13,7 +13,7 @@ add_subdirectory(buddy5)
 add_executable(project main.c)
 
 # Link libraries
-target_link_libraries(project pico_stdlib buddy1 buddy2 buddy3 buddy4 buddy5)
+target_link_libraries(project pico_stdlib hardware_adc buddy1 buddy2 buddy3 buddy4 buddy5)
 
 # Enable USB output, disable UART output
 pico_enable_stdio_usb(project 1)

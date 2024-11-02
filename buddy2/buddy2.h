@@ -20,6 +20,10 @@ extern float Kp;
 extern float Ki;
 extern float Kd;
 
+// PID variables for left motor adjustment
+extern float integral_left;
+extern float prev_error_left;
+
 // PID function declaration
 float compute_pid(float *target_speed, float *current_speed, float *integral, float *prev_error);
 
@@ -33,6 +37,15 @@ void set_pwm_duty_cycle(uint pwm_pin, float duty_cycle);
 void setup_pwm(uint gpio, float freq, float duty_cycle); 
 void set_left_motor_target_speed(float speed); // Set target speed for left motor
 void gradual_ramp_up(uint pwm_pin, float start_duty_cycle, float max_duty_cycle, float increment, uint delay_ms);
+float estimate_speed_from_duty_cycle(float duty_cycle);
+float get_right_motor_duty_cycle(void);
+void set_right_motor_duty_cycle(float duty_cycle);
+
+
+// Turning functions
+void start_turning(void);
+bool turning_complete(void);
+void start_turning(void);
 
 // Motor control functions (Left Motor)
 void forward_motor_left();
@@ -58,4 +71,4 @@ void both_half_motor_reverse();
 void motor_control_init(void);
 
 
-#endif // BUDDY2_H
+#endif // MOTOR_PWM_PID_H

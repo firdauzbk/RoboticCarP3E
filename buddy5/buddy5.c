@@ -1,6 +1,8 @@
 #include "pico/stdlib.h"
 #include <stdio.h>
+#include <stdbool.h>
 #include "hardware/gpio.h"
+#include "../buddy2/buddy2.h"
 #include "hardware/timer.h"
 #include "buddy5.h"
 #include <math.h> // for M_PI
@@ -35,26 +37,49 @@ const unsigned int ECHO_PIN = 4;
 
 uint64_t last_distance_check_time = 0;
 
+// Obstacle detection and buzzer control
+volatile bool obstacle_detected = false;
+volatile bool buzzer_on = false;
+uint64_t buzzer_start_time = 0;
+
 // Initialization function for ultrasonic, encoder, and buzzer
 void initializeBuddy5Components() {
-    stdio_init_all();  
+    stdio_init_all();
     setupUltrasonicPins();
     setupEncoderPins();
     setupBuzzerPin();
-    last_distance_check_time = time_us_64();  
+    last_distance_check_time = time_us_64();
 }
 
 // Function to check distance from the ultrasonic sensor and activate the buzzer if object is close
 void measureDistanceAndBuzz() {
     uint64_t current_time = time_us_64();
+
+    // Check if it's time to measure distance
     if (current_time - last_distance_check_time > CHECK_INTERVAL_MS * 1000) {
-        float distanceCm = getCm();
-        if (distanceCm != 0.0 && distanceCm < DISTANCE_THRESHOLD_CM) {
-            gpio_put(BUZZER_PIN, 1);
-            sleep_ms(200);  
-            gpio_put(BUZZER_PIN, 0);
-        }
         last_distance_check_time = current_time;
+
+        float distanceCm = getCm();
+
+        if (distanceCm != 0.0 && distanceCm < DISTANCE_THRESHOLD_CM) {
+            // Obstacle detected
+            obstacle_detected = true;
+
+            // Activate buzzer if not already on
+            if (!buzzer_on) {
+                gpio_put(BUZZER_PIN, 1);
+                buzzer_on = true;
+                buzzer_start_time = current_time;
+            }
+        } else {
+            obstacle_detected = false;
+        }
+    }
+
+    // Turn off buzzer after 200 ms
+    if (buzzer_on && (current_time - buzzer_start_time >= 200000)) { // 200 ms
+        gpio_put(BUZZER_PIN, 0);
+        buzzer_on = false;
     }
 }
 
@@ -71,7 +96,7 @@ void encoder_callback(uint gpio, uint32_t events) {
             float time_diff_s = (current_time - left_last_pulse_time) / 1e6; // Convert to seconds
             left_speed_cm_s = DISTANCE_PER_PULSE_CM / time_diff_s;
         }
-        
+
         left_last_pulse_time = current_time;
 
     } else if (gpio == RIGHT_ENCODER_PIN) {
@@ -83,7 +108,7 @@ void encoder_callback(uint gpio, uint32_t events) {
             float time_diff_s = (current_time - right_last_pulse_time) / 1e6; // Convert to seconds
             right_speed_cm_s = DISTANCE_PER_PULSE_CM / time_diff_s;
         }
-        
+
         right_last_pulse_time = current_time;
     }
 }
@@ -93,7 +118,7 @@ void setupEncoderPins() {
     gpio_init(LEFT_ENCODER_PIN);
     gpio_set_dir(LEFT_ENCODER_PIN, GPIO_IN);
     gpio_set_irq_enabled_with_callback(LEFT_ENCODER_PIN, GPIO_IRQ_EDGE_RISE, true, &encoder_callback);
-    
+
     gpio_init(RIGHT_ENCODER_PIN);
     gpio_set_dir(RIGHT_ENCODER_PIN, GPIO_IN);
     gpio_set_irq_enabled_with_callback(RIGHT_ENCODER_PIN, GPIO_IRQ_EDGE_RISE, true, &encoder_callback);
@@ -122,23 +147,31 @@ uint64_t getPulse() {
     gpio_put(TRIG_PIN, 0);
 
     uint64_t startWait = time_us_64();
+    uint64_t timeout = startWait + 5000; // 5 ms timeout
+
+    // Wait for the echo to start
     while (gpio_get(ECHO_PIN) == 0) {
-        if (time_us_64() - startWait > 30000) {
-            printf("Timeout: No echo detected\n");
+        if (time_us_64() > timeout) {
+            // printf("Timeout: No echo detected\n");
             return 0;
         }
+        tight_loop_contents();
     }
 
     uint64_t pulseStart = time_us_64();
+    timeout = pulseStart + 5000; // 5 ms timeout
+
+    // Wait for the echo to end
     while (gpio_get(ECHO_PIN) == 1) {
-        if (time_us_64() - pulseStart > 30000) {
-            printf("Timeout: Echo duration exceeded\n");
+        if (time_us_64() > timeout) {
+            // printf("Timeout: Echo duration exceeded\n");
             return 0;
         }
+        tight_loop_contents();
     }
     uint64_t pulseEnd = time_us_64();
 
-    printf("Echo pulse duration: %llu us\n", pulseEnd - pulseStart);
+    // Return pulse duration
     return pulseEnd - pulseStart;
 }
 
@@ -148,7 +181,7 @@ float getCm() {
     if (pulseLength == 0) return 0.0;
 
     float distance = (float)pulseLength / 29.0 / 2.0;
-    printf("Calculated distance: %.2f cm\n", distance);
+    // printf("Calculated distance: %.2f cm\n", distance);
     return distance;
 }
 
