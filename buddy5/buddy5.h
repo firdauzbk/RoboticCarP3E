@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+// #define DISTANCE_THRESHOLD_CM 10.0
+// #define CHECK_INTERVAL_MS 200
+
 // Ultrasonic sensor pin definitions
 extern const unsigned int TRIG_PIN;        // GPIO pin for ultrasonic trigger (GP4)
 extern const unsigned int ECHO_PIN;        // GPIO pin for ultrasonic echo (GP5)
@@ -48,5 +51,6 @@ void setupBuzzerPin(void);
 void setupEncoderPins(void);
 float getCm(void);
 uint64_t getPulse(void);
+void right_encoder_callback(uint gpio, uint32_t events);
 
 #endif // BUDDY5_H

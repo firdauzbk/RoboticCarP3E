@@ -2,56 +2,50 @@
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
 #include "hardware/pwm.h"
+#include "hardware/clocks.h"
 #include "buddy1/buddy1.h"
 #include "buddy2/buddy2.h"
-#include "buddy3/buddy3.h"
+//#include "buddy3/buddy3.h"
 #include "buddy4/buddy4.h"
 #include "buddy5/buddy5.h"
 
+
 int main() {
     // Initialize standard I/O
-    // Buddy3: Initialize ADC for IR sensors
     stdio_init_all();
-    setup_adc(); 
-    gpio_init(DIR_PIN1);
-    gpio_init(DIR_PIN2);
-    gpio_set_dir(DIR_PIN1, GPIO_OUT);
-    gpio_set_dir(DIR_PIN2, GPIO_OUT);
 
-    // Initialize GPIO pins for right direction control
-    gpio_init(DIR_PIN3);
-    gpio_init(DIR_PIN4);
-    gpio_set_dir(DIR_PIN3, GPIO_OUT);
-    gpio_set_dir(DIR_PIN4, GPIO_OUT);
+    // Buddy1: Initialize motor control (if needed)
+    motor_control_init();
 
-    // Initialize GPIO pin for interupt
-    gpio_init(INTERUPT_PIN);
-    gpio_set_dir(INTERUPT_PIN, GPIO_IN);
-    gpio_pull_up(INTERUPT_PIN);
+    // Buddy2: Set up motor direction and PWM pins
+    set_pwm_duty_cycle(PWM_PIN, 0.94f);   // Set right motor to 50% speed
+    set_pwm_duty_cycle(PWM_PIN1, 0.99f);  // Set left motor to 50% speed
 
-    // Set up interupt handler
-    gpio_set_irq_enabled_with_callback(INTERUPT_PIN, GPIO_IRQ_EDGE_RISE, true, &interrupt_handler);
+    // Buddy3: Initialize ADC for IR sensors
+    //setup_adc();
 
-    // Set up PWM on GPIO0
-    setup_pwm(PWM_PIN, 100.0f, current_speed);  // 100 Hz frequency, 50% duty cycle
-
-    // Set up PWM on GPIO5
-    setup_pwm(PWM_PIN1, 100.0f, current_speed1);  // 100 Hz frequency, 50% duty cycle
-
+    // Buddy5: Initialize ultrasonic sensor, encoders, and buzzer
     initializeBuddy5Components();
 
     while (1) {
+        // Buddy2: Adjust left motor speed to match the right motor
+        adjust_left_motor_speed();
 
         // Buddy3: Read IR sensors to follow a line based on surface contrast
-        read_ir_sensors();
+        //read_ir_sensors();
 
         // Buddy5: Check distance and activate buzzer if necessary
         measureDistanceAndBuzz();
-        sleep_ms(500);  // Adjust delay as needed for testing
 
-        both_full_motor_forward();
-        buddy1_function();
-        buddy4_function();
+        // Buddy5: Output speed and total distance for each wheel
+        printf("Left Wheel - Speed: %.2f cm/s, Total Distance: %.2f cm\n", 
+               left_speed_cm_s, left_total_distance);
+        printf("Right Wheel - Speed: %.2f cm/s, Total Distance: %.2f cm\n", 
+               right_speed_cm_s, right_total_distance);
+
+        // Adjust delay as needed for testing
+        sleep_ms(500);  
     }
-    return 0; 
+
+    return 0;
 }

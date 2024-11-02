@@ -4,82 +4,58 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
+#include "hardware/clocks.h"
+#include "../buddy5/buddy5.h"
 
-// Define GPIO pins
-#define PWM_PIN 2     // GP2 for PWM (Motor 1)
-#define DIR_PIN1 0    // GP0 for direction
-#define DIR_PIN2 1    // GP1 for direction
+// Define GPIO pins for motors
+#define PWM_PIN 2          // GP2 for PWM (Motor 1 - Left Motor)
+#define DIR_PIN1 17        // GP17 for direction (Motor 1 - Left Motor)
+#define DIR_PIN2 16        // GP16 for direction (Motor 1 - Left Motor)
+#define PWM_PIN1 3         // GP3 for PWM (Motor 2 - Right Motor)
+#define DIR_PIN3 14        // GP14 for direction (Motor 2 - Right Motor)
+#define DIR_PIN4 15        // GP15 for direction (Motor 2 - Right Motor)
 
-#define PWM_PIN1 5    // GP5 for PWM (Motor 2)
-#define DIR_PIN3 3    // GP3 for direction
-#define DIR_PIN4 4    // GP4 for direction
-#define START_STOP_PIN 20 // GP20 for Start/Stop button
-#define INTERUPT_PIN 21 // GP21 for interrupt
+// PID control constants
+extern float Kp;
+extern float Ki;
+extern float Kd;
 
-// Variables
-extern float current_speed;
-extern float current_speed1;
-extern bool motor_running;
+// PID function declaration
+float compute_pid(float *target_speed, float *current_speed, float *integral, float *prev_error);
 
-// Function prototypes
-void setup_pwm(uint gpio, float freq, float duty_cycle);
+// Motor control functions
+void motor_control_init(void);
+void forward_motor_right(void); // Set right motor to a constant speed
+void half_speed_right(void); // Set right motor to 50% speed
+void adjust_left_motor_speed(void); // Adjust left motor to match right motor
+void set_motor_direction(uint pin1, uint pin2, bool forward);
+void set_pwm_duty_cycle(uint pwm_pin, float duty_cycle);
+void setup_pwm(uint gpio, float freq, float duty_cycle); 
+void set_left_motor_target_speed(float speed); // Set target speed for left motor
+void gradual_ramp_up(uint pwm_pin, float start_duty_cycle, float max_duty_cycle, float increment, uint delay_ms);
 
-// Left motor control functions
+// Motor control functions (Left Motor)
 void forward_motor_left();
 void reverse_motor_left();
-void update_speed_left(float speed);
+void stop_motor_left();
 void full_speed_left();
 void half_speed_left();
-void stop_motor_left();
 
-// Right motor control functions
+// Motor control functions (Right Motor)
 void forward_motor_right();
 void reverse_motor_right();
-void update_speed_right(float speed);
+void stop_motor_right();
 void full_speed_right();
 void half_speed_right();
-void stop_motor_right();
 
-// Combined motor control functions
-void left_full_motor_forward();
-void left_full_motor_reverse();
-void left_half_motor_forward();
-void left_half_motor_reverse();
-void left_stop_motor();
-
-void right_full_motor_forward();
-void right_full_motor_reverse();
-void right_half_motor_forward();
-void right_half_motor_reverse();
-void right_stop_motor();
-
-void both_full_motor_forward();
-void both_full_motor_reverse();
-void both_half_motor_forward();
-void both_half_motor_reverse();
+// Control functions for both motors
 void both_stop_motor();
+void both_full_motor_forward();
+void both_half_motor_forward();
+void both_full_motor_reverse();
+void both_half_motor_reverse();
 
-void left_full_forward_right_stop();
-void left_full_reverse_right_stop();
-void left_half_forward_right_stop();
-void left_half_reverse_right_stop();
+void motor_control_init(void);
 
-void right_full_forward_left_stop();
-void right_full_reverse_left_stop();
-void right_half_forward_left_stop();
-void right_half_reverse_left_stop();
-
-void left_full_right_half_forward();
-void left_half_right_full_forward();
-void left_full_right_half_reverse();
-void left_half_right_full_reverse();
-
-void left_forward_right_reverse_full();
-void left_reverse_right_forward_full();
-void left_forward_right_reverse_half();
-void left_reverse_right_forward_half();
-
-// Interrupt handler
-void interrupt_handler(uint gpio, uint32_t events);
 
 #endif // BUDDY2_H

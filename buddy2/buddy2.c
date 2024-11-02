@@ -1,294 +1,178 @@
-#include <stdio.h>
-#include "pico/stdlib.h"
-#include "hardware/pwm.h"
 #include "buddy2.h"
+#include "../buddy5/buddy5.h"
+#include "hardware/clocks.h"
 
-// Define GPIO pins
-#define PWM_PIN 2     // GP2 for PWM (Motor 1)
-#define DIR_PIN1 0    // GP0 for direction
-#define DIR_PIN2 1    // GP1 for direction
+#define DEFAULT_TARGET_SPEED 100.0f // Adjust based on your motor's characteristics
 
-#define PWM_PIN1 5    // GP5 for PWM (Motor 2)
-#define DIR_PIN3 3    // GP3 for direction
-#define DIR_PIN4 4    // GP4 for direction
-#define START_STOP_PIN 20 // GP20 for Start/Stop button
-#define INTERUPT_PIN 21 // GP21 for interupt
+// PID constants for the left motor
+float Kp = 0.7f;  // Increased proportional gain for faster response
+float Ki = 0.02f; // Introduced integral gain for steady-state error correction
+float Kd = 0.01f;
 
-float current_speed = 0.0f;
-float current_speed1 = 0.0f;
-bool motor_running = true;
 
-// Function to set up the PWM
-void setup_pwm(uint gpio, float freq, float duty_cycle) {
-    // Set the GPIO function to PWM
-    gpio_set_function(gpio, GPIO_FUNC_PWM);
+// Target speed for the left motor, matching the right motor's speed
+float target_speed_left = 0.5f;  // Initially 50% of max speed
 
-    // Find out which PWM slice is connected to the specified GPIO
-    uint slice_num = pwm_gpio_to_slice_num(gpio);
+// PID variables for left motor adjustment
+float integral_left = 0.0f;
+float prev_error_left = 0.0f;
 
-    // Calculate the PWM frequency and set the PWM wrap value
-    float clock_freq = 125000000.0f;  // Default Pico clock frequency in Hz
-    uint32_t divider = clock_freq / (freq * 65536);  // Compute divider for given frequency
-    pwm_set_clkdiv(slice_num, divider);
+void set_pwm_duty_cycle(uint pwm_pin, float duty_cycle) {
+    uint slice_num = pwm_gpio_to_slice_num(pwm_pin);
+    uint chan = pwm_gpio_to_channel(pwm_pin);
+    uint32_t wrap = 65535; // Use a fixed wrap value for simplicity
 
-    // Set the PWM wrap value (maximum count value)
-    pwm_set_wrap(slice_num, 65535);  // 16-bit counter (0 - 65535)
+    // Calculate the level based on the wrap value
+    uint16_t level = duty_cycle * wrap;
 
-    // Set the duty cycle
-    pwm_set_gpio_level(gpio, (uint16_t)(duty_cycle * 65536));
+    // Set the PWM channel level
+    pwm_set_chan_level(slice_num, chan, level);
 
-    // Enable the PWM
-    pwm_set_enabled(slice_num, true);
+    printf("Updated PWM on GPIO %d to %.2f%% speed\n", pwm_pin, duty_cycle * 100);
 }
 
-// For Left Motor
-void forward_motor_left() {
-    // Set the direction pins for forward motion
-    gpio_put(DIR_PIN1, 1);
-    gpio_put(DIR_PIN2, 0);
-    printf("Left Forward\n");
+
+// Basic motor functions for right motor
+void forward_motor_right() { set_motor_direction(DIR_PIN3, DIR_PIN4, true); }
+
+void half_speed_right() { 
+    set_pwm_duty_cycle(PWM_PIN1, 0.5f); // Set right motor to 50% duty cycle
+    target_speed_left = 0.5f;  // Target the same speed for left motor
 }
 
-void reverse_motor_left() {
-    // Set the direction pins for reverse motion
-    gpio_put(DIR_PIN1, 0);
-    gpio_put(DIR_PIN2, 1);
-    printf("Left Reverse\n");
-}
-
-void update_speed_left(float speed){
-    pwm_set_gpio_level(PWM_PIN, (uint16_t)(speed * 65536));
-}
-
-void full_speed_left(){
-    printf("Left Speed: 100%% Full Speed\n");
-    current_speed = 0.99f;
-    update_speed_left(current_speed);
-}
-
-void half_speed_left(){
-    printf("Left Speed: 50%% Half Speed\n");
-    current_speed = 0.5f;
-    update_speed_left(current_speed);
-}
-
-void stop_motor_left(){
-    printf("Left Speed: 0%% Motor Stop\n");
-    current_speed = 0.0f;
-    update_speed_left(current_speed);
-}
-
-// For Right Motor
-void forward_motor_right() {
-    // Set the direction pins for forward motion
-    gpio_put(DIR_PIN3, 1);
-    gpio_put(DIR_PIN4, 0);
-    printf("Right Forward\n");
-}
-
-void reverse_motor_right() {
-    // Set the direction pins for reverse motion
-    gpio_put(DIR_PIN3, 0);
-    gpio_put(DIR_PIN4, 1);
-    printf("Right Reverse\n");
-}
-
-void update_speed_right(float speed){
-    pwm_set_gpio_level(PWM_PIN1, (uint16_t)(speed * 65536));
-}
-
-void full_speed_right(){
-    printf("Right speed: 100%% Full Speed\n");
-    current_speed1 = 0.99f;
-    update_speed_right(current_speed1);
-}
-
-void half_speed_right(){
-    printf("Right Speed: 50%% Half Speed\n");
-    current_speed1 = 0.5f;
-    update_speed_right(current_speed1);
-}
-
-void stop_motor_right(){
-    printf("Right Speed: 0%% Motor Stop\n");
-    current_speed1 = 0.0f;
-    update_speed_right(current_speed1);
-}
-
-// Setting direction and speed of left motor
-
-void left_full_motor_forward(){
-    forward_motor_left();
-    full_speed_left();
-}
-
-void left_full_motor_reverse(){
-    reverse_motor_left();
-    full_speed_left();
-}
-
-void left_half_motor_forward(){
-    forward_motor_left();
-    half_speed_left();
-}
-
-void left_half_motor_reverse(){
-    reverse_motor_left();
-    half_speed_left();
-}
-
-void left_stop_motor(){
-    stop_motor_left();
-}
-
-// Setting direction and speed of right motor
-
-void right_full_motor_forward(){
-    forward_motor_right();
-    full_speed_right();
-}
-
-void right_full_motor_reverse(){
-    reverse_motor_right();
-    full_speed_right();
-}
-
-void right_half_motor_forward(){
-    forward_motor_right();
-    half_speed_right();
-}
-
-void right_half_motor_reverse(){
-    reverse_motor_right();
-    half_speed_right();
-}
-
-void right_stop_motor(){
-    stop_motor_right();
-}
-
-// Setting direction for both motors
-
-void both_full_motor_forward(){
-    left_full_motor_forward();
-    right_full_motor_forward();
-}
-
-void both_full_motor_reverse(){
-    left_full_motor_reverse();
-    right_full_motor_reverse();
-}
-
-void both_half_motor_forward(){
-    left_half_motor_forward();
-    right_half_motor_forward();
-}
-
-void both_half_motor_reverse(){
-    left_half_motor_reverse();
-    right_half_motor_reverse();
-}
-
-void both_stop_motor(){
-    left_stop_motor();
-    right_stop_motor();
-}
-
-// Setting direction and movement for left and stop for right
-void left_full_forward_right_stop(){
-    left_full_motor_forward();
-    right_stop_motor();
-}
-
-void left_full_reverse_right_stop(){
-    left_full_motor_reverse();
-    right_stop_motor();
-}
-
-void left_half_forward_right_stop(){
-    left_half_motor_forward();
-    right_stop_motor();
-}
-
-void left_half_reverse_right_stop(){
-    left_half_motor_reverse();
-    right_stop_motor();
-}
-
-// Setting direction and movement for right and stop for left
-
-void right_full_forward_left_stop(){
-    right_full_motor_forward();
-    left_stop_motor();
-}
-
-void right_full_reverse_left_stop(){
-    right_full_motor_reverse();
-    left_stop_motor();
-}
-
-void right_half_forward_left_stop(){
-    right_half_motor_forward();
-    left_stop_motor();
-}
-
-void right_half_reverse_left_stop(){
-    right_half_motor_reverse();
-    left_stop_motor();
-}
-
-// One full speed one half speed
-
-void left_full_right_half_foward(){
-    left_full_motor_forward();
-    right_half_motor_forward();
-}
-
-void left_half_right_full_forward(){
-    left_half_motor_forward();
-    right_full_motor_forward();
-}
-
-void left_full_right_half_reverse(){
-    left_full_motor_reverse();
-    right_half_motor_reverse();
-}
-
-void left_half_right_full_reverse(){
-    left_half_motor_reverse();
-    right_full_motor_reverse();
-}
-
-// Moving on the spot
-
-void left_forward_right_reverse_full(){
-    left_full_motor_forward();
-    right_full_motor_reverse();
-}
-
-void left_reverse_right_forward_full(){
-    left_full_motor_reverse();
-    right_full_motor_forward();
-}
-
-void left_forward_right_reverse_half(){
-    left_half_motor_forward();
-    right_half_motor_reverse();
-}
-
-void left_reverse_right_forward_half(){
-    left_half_motor_reverse();
-    right_half_motor_forward();
-}
-
-// Interrpt handler
-void interrupt_handler(uint gpio, uint32_t events){
-    printf("Interupt\n");
-    if (gpio == INTERUPT_PIN && events == GPIO_IRQ_EDGE_RISE){
-        printf("Stop Both Motor\n");
-        stop_motor_left();
-        stop_motor_right();
-        pwm_set_gpio_level(PWM_PIN, 0);
-        pwm_set_gpio_level(PWM_PIN1, 0);
+void gradual_ramp_up(uint pwm_pin, float start_duty_cycle, float max_duty_cycle, float increment, uint delay_ms) {
+    float current_duty_cycle = start_duty_cycle;
+    
+    // Gradually increase the duty cycle to the maximum value
+    while (current_duty_cycle < max_duty_cycle) {
+        set_pwm_duty_cycle(pwm_pin, current_duty_cycle);
+        printf("Ramping up PWM on GPIO %d to %.2f%% speed\n", pwm_pin, current_duty_cycle * 100);
+        current_duty_cycle += increment;
+        if (current_duty_cycle > max_duty_cycle) {
+            current_duty_cycle = max_duty_cycle; // Ensure it doesn't exceed max value
+        }
+        sleep_ms(delay_ms);
     }
+
+    // Set to the maximum value to finish the ramp-up
+    set_pwm_duty_cycle(pwm_pin, max_duty_cycle);
+    printf("Reached max speed on GPIO %d at %.2f%% speed\n", pwm_pin, max_duty_cycle * 100);
+}
+
+void full_speed_right() {
+    float start_duty_cycle = 0.6f;   // Start at 20% speed
+    float max_duty_cycle = 0.99f;    // Ramp up to 99% speed
+    float increment = 0.05f;         // Increase by 5% in each step
+    uint delay_ms = 1000;             // Delay between each increment (200 ms)
+
+    // Gradually increase right motor speed
+    gradual_ramp_up(PWM_PIN1, start_duty_cycle, max_duty_cycle, increment, delay_ms);
+    
+    // Update target speed for the left motor PID control
+    target_speed_left = max_duty_cycle;
+}
+
+
+float compute_pid(float *target_speed, float *current_speed, float *integral, float *prev_error) {
+    float error = *target_speed - *current_speed;
+    *integral += error;
+
+    // Integral clamping to avoid windup
+    const float MAX_INTEGRAL = 43.7f;  // This is a tuning parameter
+    if (*integral > MAX_INTEGRAL) *integral = MAX_INTEGRAL;
+    if (*integral < -MAX_INTEGRAL) *integral = -MAX_INTEGRAL;
+
+    float derivative = error - *prev_error;
+    float duty_cycle = Kp * error + Ki * (*integral) + Kd * derivative;
+
+    // Clamp duty cycle to [0, 1]
+    if (duty_cycle > 1.0f) duty_cycle = 0.99f;
+    else if (duty_cycle < 0.0f) duty_cycle = 0.0f;
+
+    *prev_error = error;
+    return duty_cycle;
+}
+
+void adjust_left_motor_speed() {
+    // Use the speed calculated from both encoders
+    float current_speed_left = left_speed_cm_s;
+    float target_speed_left;
+
+    // Handle initial condition where right_speed_cm_s is zero
+    if (right_speed_cm_s < 1.0f) { // Threshold to consider speed as zero
+        // Set a default target speed based on duty cycle
+        target_speed_left = DEFAULT_TARGET_SPEED; // e.g., 100.0f cm/s
+    } else {
+        target_speed_left = right_speed_cm_s; // Target is the right motor's speed
+    }
+    // Debugging output
+    printf("Current Left Motor Speed: %.2f cm/s\n", current_speed_left);
+    printf("Target Left Motor Speed: %.2f cm/s\n", target_speed_left);
+
+    // Compute PID adjustment
+    float adjusted_duty_cycle = compute_pid(&target_speed_left, &current_speed_left, &integral_left, &prev_error_left);
+
+    // Debugging output for adjusted duty cycle
+    printf("Computed Left Motor Duty Cycle: %.2f%%\n", adjusted_duty_cycle * 100);
+
+    // Apply adjusted duty cycle to left motor
+    set_pwm_duty_cycle(PWM_PIN, adjusted_duty_cycle);
+    printf("Updated Left Motor PWM on GPIO %d to %.2f%% speed\n", PWM_PIN, adjusted_duty_cycle * 100);
+}
+
+void setup_pwm(uint gpio, float freq, float duty_cycle) {
+    gpio_set_function(gpio, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(gpio);
+    uint chan = pwm_gpio_to_channel(gpio);
+
+    // Calculate and set the PWM frequency and clock divider
+    uint32_t f_sys = clock_get_hz(clk_sys);
+    uint32_t divider16 = (f_sys * 16) / (freq * 65536);
+    if (divider16 / 16 == 0) divider16 = 16; // Minimum divider value
+
+    pwm_set_clkdiv_int_frac(slice_num, divider16 / 16, divider16 & 0xF);
+    pwm_set_wrap(slice_num, 65535); // Use a fixed wrap value
+
+    // Calculate the level based on the wrap value
+    uint16_t level = duty_cycle * 65535;
+
+    // Set the PWM channel level
+    pwm_set_chan_level(slice_num, chan, level);
+
+    pwm_set_enabled(slice_num, true);
+    printf("PWM setup complete on GPIO %d with frequency %.2f Hz and duty cycle %.2f%%\n",
+           gpio, freq, duty_cycle * 100);
+}
+
+
+// Motor direction control for left motor
+void forward_motor_left() { set_motor_direction(DIR_PIN1, DIR_PIN2, true); }
+
+void set_motor_direction(uint pin1, uint pin2, bool forward) {
+    gpio_put(pin1, forward ? 1 : 0);
+    gpio_put(pin2, forward ? 0 : 1);
+    printf("Motor direction set to %s\n", forward ? "forward" : "reverse");
+}
+
+
+
+void motor_control_init(void) {
+    // GPIO initialization
+    gpio_init(PWM_PIN); gpio_init(PWM_PIN1);
+    gpio_init(DIR_PIN1); gpio_init(DIR_PIN2);
+    gpio_init(DIR_PIN3); gpio_init(DIR_PIN4);
+
+    gpio_set_dir(PWM_PIN, GPIO_OUT); gpio_set_dir(PWM_PIN1, GPIO_OUT);
+    gpio_set_dir(DIR_PIN1, GPIO_OUT); gpio_set_dir(DIR_PIN2, GPIO_OUT);
+    gpio_set_dir(DIR_PIN3, GPIO_OUT); gpio_set_dir(DIR_PIN4, GPIO_OUT);
+
+    // Set up PWM for both motors
+    setup_pwm(PWM_PIN, 100.0f, 0.5f);  // Initialize left motor with 0% duty cycle
+    setup_pwm(PWM_PIN1, 100.0f, 0.5f); // Initialize right motor to 50% duty cycle
+
+    // Set both motors forward direction
+    forward_motor_left();
+    forward_motor_right();
+
+    printf("Motor control initialized with right motor at 50%%, left motor adjusting.\n");
 }

@@ -151,3 +151,19 @@ float getCm() {
     printf("Calculated distance: %.2f cm\n", distance);
     return distance;
 }
+
+void right_encoder_callback(uint gpio, uint32_t events) {
+    right_pulse_count++;
+    right_incremental_distance += DISTANCE_PER_PULSE_CM;
+
+    if (right_last_pulse_time != 0) {
+        uint64_t current_time = time_us_64();
+        float time_diff_s = (current_time - right_last_pulse_time) / 1e6;
+        right_speed_cm_s = DISTANCE_PER_PULSE_CM / time_diff_s;
+
+        // Debugging output
+        printf("Right Encoder Pulse Count: %d, Right Motor Speed: %.2f cm/s\n", right_pulse_count, right_speed_cm_s);
+
+        right_last_pulse_time = current_time;
+    }
+}
