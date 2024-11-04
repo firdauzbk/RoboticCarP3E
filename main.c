@@ -30,6 +30,10 @@ int main() {
     stdio_init_all();
     motor_control_init();
     initializeBuddy5Components();
+    
+    // Reset PID controller variables
+    integral_left = 0.0f;
+    prev_error_left = 0.0f;
 
     // Set both motors to the same initial duty cycle
     set_pwm_duty_cycle(PWM_PIN, 0.94f);   // Left motor

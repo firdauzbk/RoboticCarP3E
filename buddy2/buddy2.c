@@ -6,10 +6,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define RIGHT_MOTOR_CORRECTION_FACTOR 0.98f  // Adjust this value as needed
+
 // PID constants for the left motor
-float Kp = 0.7f;   // Proportional gain
-float Ki = 0.02f;  // Integral gain
-float Kd = 0.01f;  // Derivative gain
+float Kp = 2.0f;   // Proportional gain
+float Ki = 0.05f;  // Integral gain
+float Kd = 0.02f;  // Derivative gain
 
 // PID variables for left motor adjustment
 float integral_left = 0.0f;
@@ -38,6 +40,9 @@ void set_pwm_duty_cycle(uint pwm_pin, float duty_cycle) {
         left_motor_duty_cycle = duty_cycle;
     } else if (pwm_pin == PWM_PIN1) {
         right_motor_duty_cycle = duty_cycle;
+    }
+    else {
+        duty_cycle *= RIGHT_MOTOR_CORRECTION_FACTOR;
     }
 
     // Debugging output (optional)
@@ -180,7 +185,7 @@ void start_turning() {
     reverse_motor_right();
 
     // Set duty cycles for turning
-    float turn_speed = 0.8f; // Adjust speed as needed
+    float turn_speed = 0.50f; // Adjust speed as needed
     set_pwm_duty_cycle(PWM_PIN, turn_speed);  // Left motor
     set_pwm_duty_cycle(PWM_PIN1, turn_speed); // Right motor
 
