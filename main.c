@@ -30,6 +30,15 @@ int main() {
     stdio_init_all();
     motor_control_init();
     initializeBuddy5Components();
+
+    setupUltrasonicPins();
+
+    // Initialize Kalman filter with tuned parameters
+    kalman_state *state = kalman_init(1.0, 0.5, 1.0, 20.0);
+    if (state == NULL) {
+        printf("Failed to initialize Kalman filter\n");
+        return 1;
+    }
     
     // Reset PID controller variables
     integral_left = 0.0f;
@@ -41,18 +50,18 @@ int main() {
 
     current_state = STATE_MOVING_FORWARD;
 
-    while (true) {
-        // Measure distance and handle buzzer
-        measureDistanceAndBuzz();
+    sleep_ms(50);
 
+    while (true) {
+        getCm(state);
+        //printf("Measured Distance: %.2f cm, Obstacle Detected: %s\n", state->x, obstacleDetected ? "Yes" : "No");
         // Handle different robot states
         switch (current_state) {
             case STATE_MOVING_FORWARD:
-                if (!obstacle_detected) {
+                if (!obstacleDetected) {
                     adjust_left_motor_speed();
                 } else {
                     // Transition to turning state
-                    printf("Obstacle detected! Stopping motors and starting turn.\n");
                     set_pwm_duty_cycle(PWM_PIN, 0.0f);   // Left motor
                     set_pwm_duty_cycle(PWM_PIN1, 0.0f);  // Right motor
 
