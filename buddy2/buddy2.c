@@ -46,7 +46,7 @@ void set_pwm_duty_cycle(uint pwm_pin, float duty_cycle) {
     }
 
     // Debugging output (optional)
-    printf("Updated PWM on GPIO %d to %.2f%% duty cycle\n", pwm_pin, duty_cycle * 100);
+    //printf("Updated PWM on GPIO %d to %.2f%% duty cycle\n", pwm_pin, duty_cycle * 100);
 }
 
 // Function to estimate speed from duty cycle (if needed)
@@ -62,7 +62,7 @@ float get_right_motor_duty_cycle() {
 
 // Function to adjust left motor speed using PID control
 void adjust_left_motor_speed() {
-    if (obstacle_detected) {
+    if (obstacleDetected) {
         // Do not adjust motor speed if obstacle is detected
         return;
     }
@@ -76,20 +76,20 @@ void adjust_left_motor_speed() {
         // Estimate target speed based on right motor's duty cycle
         float right_duty_cycle = get_right_motor_duty_cycle();
         target_speed_left = estimate_speed_from_duty_cycle(right_duty_cycle);
-        printf("Estimating target speed from duty cycle: %.2f cm/s\n", target_speed_left);
+        //printf("Estimating target speed from duty cycle: %.2f cm/s\n", target_speed_left);
     } else {
         target_speed_left = right_speed_cm_s; // Target is the right motor's measured speed
     }
 
     // Debugging output
-    printf("Current Left Motor Speed: %.2f cm/s\n", current_speed_left);
-    printf("Target Left Motor Speed: %.2f cm/s\n", target_speed_left);
+    //printf("Current Left Motor Speed: %.2f cm/s\n", current_speed_left);
+    //printf("Target Left Motor Speed: %.2f cm/s\n", target_speed_left);
 
     // Compute PID adjustment
     float adjusted_duty_cycle = compute_pid(&target_speed_left, &current_speed_left, &integral_left, &prev_error_left);
 
     // Debugging output for adjusted duty cycle
-    printf("Computed Left Motor Duty Cycle: %.2f%%\n", adjusted_duty_cycle * 100);
+    //printf("Computed Left Motor Duty Cycle: %.2f%%\n", adjusted_duty_cycle * 100);
 
     // Apply adjusted duty cycle to left motor
     set_pwm_duty_cycle(PWM_PIN, adjusted_duty_cycle);
@@ -116,8 +116,8 @@ void setup_pwm(uint gpio, float freq, float duty_cycle) {
     pwm_set_chan_level(slice_num, chan, level);
 
     pwm_set_enabled(slice_num, true);
-    printf("PWM setup complete on GPIO %d with frequency %.2f Hz and duty cycle %.2f%%\n",
-           gpio, freq, duty_cycle * 100);
+    //printf("PWM setup complete on GPIO %d with frequency %.2f Hz and duty cycle %.2f%%\n",
+    //       gpio, freq, duty_cycle * 100);
 }
 
 // PID computation function
@@ -150,7 +150,7 @@ void reverse_motor_right() { set_motor_direction(DIR_PIN3, DIR_PIN4, false); }
 void set_motor_direction(uint pin1, uint pin2, bool forward) {
     gpio_put(pin1, forward ? 1 : 0);
     gpio_put(pin2, forward ? 0 : 1);
-    printf("Motor direction on pins %d and %d set to %s\n", pin1, pin2, forward ? "forward" : "reverse");
+    //printf("Motor direction on pins %d and %d set to %s\n", pin1, pin2, forward ? "forward" : "reverse");
 }
 
 // Motor control initialization function
@@ -172,7 +172,7 @@ void motor_control_init(void) {
     forward_motor_left();
     forward_motor_right();
 
-    printf("Motor control initialized with both motors at 50%% duty cycle.\n");
+    //printf("Motor control initialized with both motors at 50%% duty cycle.\n");
 }
 
 // Turning functions
@@ -185,7 +185,7 @@ void start_turning() {
     reverse_motor_right();
 
     // Set duty cycles for turning
-    float turn_speed = 0.50f; // Adjust speed as needed
+    float turn_speed = 0.55f; // Adjust speed as needed
     set_pwm_duty_cycle(PWM_PIN, turn_speed);  // Left motor
     set_pwm_duty_cycle(PWM_PIN1, turn_speed); // Right motor
 
