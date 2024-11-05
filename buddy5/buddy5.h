@@ -3,29 +3,29 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "pico/stdlib.h"
+#include "hardware/gpio.h"
+#include "hardware/timer.h"
 #include "../buddy2/buddy2.h"
+/* ---------------- ULTRASONIC ----------------*/
+// Define GPIO pins for the ultrasonic sensor
+#define TRIGPIN 4
+#define ECHOPIN 5
 
-// #define DISTANCE_THRESHOLD_CM 10.0
-// #define CHECK_INTERVAL_MS 200
-// buddy5.h
+// Kalman filter state structure
+typedef struct kalman_state_ {
+    double q; // Process noise covariance
+    double r; // Measurement noise covariance
+    double x; // Estimated value
+    double p; // Estimation error covariance
+    double k; // Kalman gain
+} kalman_state;
 
-// Existing includes and declarations...
-
-
-// Ultrasonic sensor pin definitions
-extern const unsigned int TRIG_PIN;        // GPIO pin for ultrasonic trigger (GP4)
-extern const unsigned int ECHO_PIN;        // GPIO pin for ultrasonic echo (GP5)
+/* ---------------- IR WHEEL ENCODER ----------------*/
 
 // Encoder pin definitions for left and right wheels
 #define LEFT_ENCODER_PIN 8                 // GPIO pin for left wheel encoder (GP8)
 #define RIGHT_ENCODER_PIN 0                // GPIO pin for right wheel encoder (GP0)
-
-// Buzzer pin definition
-extern const unsigned int BUZZER_PIN;      // GPIO pin for buzzer
-
-// Distance threshold and check interval
-extern const float DISTANCE_THRESHOLD_CM;  // Distance threshold in cm for buzzer activation
-extern const unsigned int CHECK_INTERVAL_MS;  // Interval in ms between distance checks
 
 // Wheel and encoder specifications
 extern const float WHEEL_DIAMETER_CM;         // Diameter of the wheel in cm
@@ -46,19 +46,22 @@ extern volatile float right_total_distance;
 extern volatile float right_speed_cm_s;
 extern volatile uint64_t right_last_pulse_time;
 
+// External flag to indicate if an obstacle is detected
+extern volatile bool obstacleDetected;
 
-extern volatile bool obstacle_detected;
 // Function declarations for Buddy5
 void initializeBuddy5Components(void);    // Initializes ultrasonic, encoder, and buzzer components
-void measureDistanceAndBuzz(void);        // Measures distance and activates buzzer if too close
 void updateLastCheckTime(void);           // Manually updates the last check time
 
 // Internal helper functions (not required to be called from main)
-void setupUltrasonicPins(void);
-void setupBuzzerPin(void);
+kalman_state *kalman_init(double q, double r, double p, double initial_value);
+void get_echo_pulse(uint gpio, uint32_t events);
+void kalman_update(kalman_state *state, double measurement);
+void setupUltrasonicPins();
+uint64_t getPulse();
+double getCm(kalman_state *state);
+
 void setupEncoderPins(void);
-float getCm(void);
-uint64_t getPulse(void);
 void right_encoder_callback(uint gpio, uint32_t events);
 
 #endif // BUDDY5_H
