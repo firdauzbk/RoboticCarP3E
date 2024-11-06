@@ -16,29 +16,31 @@ typedef enum {
 RobotState current_state = STATE_MOVING_FORWARD;
 uint64_t turning_start_time = 0;
 
+
 // Variables for distance measurement
-int left_start_count = 0;
-int right_start_count = 0;
+
 float target_distance_cm = 90.0f; // Distance to move forward in cm
 
 // Function prototypes
 void start_turning_right(void);
+void reset_distance_counters(void);
 bool turning_complete(void);
-bool has_moved_distance(float distance_cm);
+
+void reset_distance_counters() {
+    left_pulse_count = 0;
+    right_pulse_count = 0;
+    left_incremental_distance = 0.0f;
+    right_incremental_distance = 0.0f;
+    left_total_distance = 0.0f;
+    right_total_distance = 0.0f;
+}
 
 int main() {
     stdio_init_all();
     motor_control_init();
+    
+    // Initialize all Buddy5 components (includes Kalman filter)
     initializeBuddy5Components();
-
-    setupUltrasonicPins();
-
-    // Initialize Kalman filter with tuned parameters
-    kalman_state *state = kalman_init(1.0, 0.5, 1.0, 20.0);
-    if (state == NULL) {
-        printf("Failed to initialize Kalman filter\n");
-        return 1;
-    }
     
     // Reset PID controller variables
     integral_left = 0.0f;
@@ -50,20 +52,34 @@ int main() {
 
     current_state = STATE_MOVING_FORWARD;
 
-    sleep_ms(50);
+    sleep_ms(50); // Initial delay for system stabilization
+
+    float current_distance = 0.0f;
+    uint32_t last_print_time = 0;
 
     while (true) {
-        getCm(state);
-        //printf("Measured Distance: %.2f cm, Obstacle Detected: %s\n", state->x, obstacleDetected ? "Yes" : "No");
+        // Measure distance and handle buzzer using Kalman-filtered measurements
+        measureDistanceAndBuzz();
+        current_distance = getCm();  // Get current filtered distance
+        
+        // Print debug information every 500ms
+        uint32_t current_time = time_us_64() / 1000;
+        if (current_time - last_print_time >= 500) {
+            printf("Distance: %.2f cm, Left Speed: %.2f cm/s, Right Speed: %.2f cm/s\n", 
+                   current_distance, left_speed_cm_s, right_speed_cm_s);
+            last_print_time = current_time;
+        }
+
         // Handle different robot states
         switch (current_state) {
             case STATE_MOVING_FORWARD:
-                if (!obstacleDetected) {
-                    adjust_left_motor_speed();
-                } else {
-                    // Transition to turning state
+                // Check if obstacle is detected at or before threshold
+                if (current_distance <= 15) {
+                    // Stop immediately when reaching threshold
+                    printf("Obstacle detected at threshold (%.2f cm)! Stopping motors and starting turn.\n", current_distance);
                     set_pwm_duty_cycle(PWM_PIN, 0.0f);   // Left motor
                     set_pwm_duty_cycle(PWM_PIN1, 0.0f);  // Right motor
+                    sleep_ms(500);
 
                     // Reset PID controller variables
                     integral_left = 0.0f;
@@ -71,15 +87,21 @@ int main() {
 
                     // Start turning right
                     start_turning_right();
-
                     current_state = STATE_TURNING_RIGHT;
+                } else {
+                    // No obstacle at threshold, continue forward with speed adjustment
+                    adjust_left_motor_speed();
+                    
+                    // Optional: Print distance for debugging
+                    // printf("Current distance: %.2f cm\n", current_distance);
                 }
                 break;
 
             case STATE_TURNING_RIGHT:
                 if (turning_complete()) {
+                    reset_distance_counters();
                     // Transition to moving forward a specific distance
-                    printf("Turn complete. Moving forward 90 cm.\n");
+                    printf("Turn complete. Moving forward %.2f cm.\n", target_distance_cm);
 
                     // Set both motors forward
                     set_motor_direction(DIR_PIN1, DIR_PIN2, true);   // Left motor forward
@@ -89,26 +111,27 @@ int main() {
                     set_pwm_duty_cycle(PWM_PIN, 0.94f);   // Left motor
                     set_pwm_duty_cycle(PWM_PIN1, 0.99f);  // Right motor
 
-                    // Record starting encoder counts
-                    left_start_count = left_pulse_count;
-                    right_start_count = right_pulse_count;
 
                     current_state = STATE_MOVING_FORWARD_DISTANCE;
+
                 }
                 break;
 
-            case STATE_MOVING_FORWARD_DISTANCE:
-                if (!has_moved_distance(target_distance_cm)) {
-                    adjust_left_motor_speed();
-                } else {
-                    // Stop the robot after moving the desired distance
-                    printf("Moved 90 cm forward. Stopping.\n");
-                    set_pwm_duty_cycle(PWM_PIN, 0.0f);   // Left motor
-                    set_pwm_duty_cycle(PWM_PIN1, 0.0f);  // Right motor
+            case STATE_MOVING_FORWARD_DISTANCE: {
+                // Print the current distance traveled for debugging
+                if (current_time - last_print_time >= 500) {
+                    printf("Current Distance Traveled: %.2f cm (Target: %.2f cm)\n", 
+                           right_incremental_distance, target_distance_cm);
+                }
 
+                if (right_incremental_distance >= target_distance_cm) {
+                    printf("Reached target distance of %.2f cm. Stopping.\n", target_distance_cm);
+                    set_pwm_duty_cycle(PWM_PIN, 0.0f);    // Stop left motor
+                    set_pwm_duty_cycle(PWM_PIN1, 0.0f);   // Stop right motor
                     current_state = STATE_STOPPED;
                 }
                 break;
+            }
 
             case STATE_STOPPED:
                 // Robot is stopped
@@ -123,25 +146,4 @@ int main() {
     }
 
     return 0;
-}
-
-bool has_moved_distance(float distance_cm) {
-    // Calculate the distance traveled using encoder counts
-    int left_ticks = left_pulse_count - left_start_count;
-    int right_ticks = right_pulse_count - right_start_count;
-
-    // Average the ticks from both wheels
-    int average_ticks = (left_ticks + right_ticks) / 2;
-
-    // Calculate distance traveled
-    float distance_per_tick = DISTANCE_PER_PULSE_CM; // Already defined in buddy5.c/h
-    float distance_traveled = average_ticks * distance_per_tick;
-
-    // Debugging output (optional)
-    // printf("Distance traveled: %.2f cm\n", distance_traveled);
-
-    if (distance_traveled >= distance_cm) {
-        return true;
-    }
-    return false;
 }

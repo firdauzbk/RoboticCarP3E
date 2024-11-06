@@ -9,8 +9,8 @@
 #define RIGHT_MOTOR_CORRECTION_FACTOR 0.98f  // Adjust this value as needed
 
 // PID constants for the left motor
-float Kp = 2.0f;   // Proportional gain
-float Ki = 0.05f;  // Integral gain
+float Kp = 3.0f;   // Proportional gain
+float Ki = 2.0f;  // Integral gain
 float Kd = 0.02f;  // Derivative gain
 
 // PID variables for left motor adjustment
@@ -62,7 +62,7 @@ float get_right_motor_duty_cycle() {
 
 // Function to adjust left motor speed using PID control
 void adjust_left_motor_speed() {
-    if (obstacleDetected) {
+    if (obstacle_detected) {
         // Do not adjust motor speed if obstacle is detected
         return;
     }
@@ -82,8 +82,8 @@ void adjust_left_motor_speed() {
     }
 
     // Debugging output
-    //printf("Current Left Motor Speed: %.2f cm/s\n", current_speed_left);
-    //printf("Target Left Motor Speed: %.2f cm/s\n", target_speed_left);
+    printf("Current Left Motor Speed: %.2f cm/s\n", current_speed_left);
+    printf("Target Left Motor Speed: %.2f cm/s\n", target_speed_left);
 
     // Compute PID adjustment
     float adjusted_duty_cycle = compute_pid(&target_speed_left, &current_speed_left, &integral_left, &prev_error_left);

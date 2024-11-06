@@ -1,5 +1,5 @@
 # Create a library for buddy5
-add_library(buddy5 buddy5_ir.c buddy5_ultrasonic.c buddy5.h)
+add_library(buddy5 buddy5.c buddy5.h)
 
 # Optionally specify include directories
 target_include_directories(buddy5 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
